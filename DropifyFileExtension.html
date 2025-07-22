@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Dropify Custom Error Message</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/dropify/dist/css/dropify.min.css">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dropify/dist/js/dropify.min.js"></script>
+
+    <style>
+        .dropify-wrapper {
+            height: 34px !important;
+            min-height: 34px !important;
+            width: 300px !important;
+            padding: 0 10px;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            overflow: hidden;
+        }
+
+        .dropify-message {
+            display: flex;
+            align-items: center;
+            padding: 0;
+            margin: 0;
+            width: 100%;
+        }
+
+        .dropify-message span.file-icon {
+            display: inline !important;
+        }
+
+        .dropify-message p {
+            font-size: 14px;
+            margin: 0;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            color: red; /* Optional: make error red */
+        }
+    </style>
+</head>
+<body>
+
+<h3>Upload File (PDF or PNG)</h3>
+
+<input type="file" id="uploadBox"
+       class="dropify"
+       data-allowed-file-extensions="pdf png"
+       data-show-remove="false"
+       data-height="34" />
+
+<script>
+    $(document).ready(function () {
+        var drEvent = $('#uploadBox').dropify({
+            messages: {
+                default: 'Upload PDF/PNG...',
+                error: 'Oops! Wrong file format.'
+            }
+        });
+
+        const dropifyBox = $('#uploadBox');
+
+        // On error (invalid file)
+        dropifyBox.on('dropify.errors', function (event, element) {
+            $(this).closest('.dropify-wrapper').find('.dropify-message p')
+                   .text('Oops! Wrong file format.').css('color', 'red');
+        });
+
+        // On change (valid or invalid)
+        dropifyBox.on('change', function () {
+            const file = this.files[0];
+            const ext = file?.name.split('.').pop().toLowerCase();
+            const allowed = ['pdf', 'png'];
+
+            if (!file || !allowed.includes(ext)) {
+                $(this).closest('.dropify-wrapper').find('.dropify-message p')
+                       .text('Oops! Wrong file format.').css('color', 'red');
+            } else {
+                // Reset to default
+                $(this).closest('.dropify-wrapper').find('.dropify-message p')
+                       .text('Upload PDF/PNG...').css('color', '');
+            }
+        });
+    });
+</script>
+
+</body>
+</html>

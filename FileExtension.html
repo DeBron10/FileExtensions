@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Strict File Type Upload (20px)</title>
+  <style>
+    .custom-upload {
+      height: 20px;
+      width: 300px;
+      border: 1px dashed #999;
+      border-radius: 5px;
+      font-size: 10px;
+      color: #555;
+      padding: 0 10px;
+      display: flex;
+      align-items: center;
+      cursor: pointer;
+      overflow: hidden;
+      white-space: nowrap;
+    }
+
+    .custom-upload:hover {
+      background-color: #f5f5f5;
+    }
+
+    .custom-upload input[type="file"] {
+      display: none;
+    }
+
+    .upload-label {
+      pointer-events: none;
+    }
+
+    .error {
+      color: red;
+      font-size: 12px;
+      margin-top: 5px;
+    }
+  </style>
+</head>
+<body>
+
+  <h3>Upload PDF or PNG</h3>
+
+  <label class="custom-upload">
+    <span class="upload-label" id="uploadLabel">Upload PDF/PNG...</span>
+    <input type="file" accept=".pdf,.png" onchange="validateFile(this)">
+  </label>
+
+  <div class="error" id="errorMsg"></div>
+
+  <script>
+    function validateFile(input) {
+      const file = input.files[0];
+      const label = document.getElementById('uploadLabel');
+      const errorMsg = document.getElementById('errorMsg');
+
+      if (!file) {
+        label.textContent = 'Upload PDF/PNG...';
+        errorMsg.textContent = '';
+        return;
+      }
+
+      const allowedTypes = ['application/pdf', 'image/png'];
+      if (!allowedTypes.includes(file.type)) {
+        label.textContent = 'Upload PDF/PNG...';
+        input.value = ''; // Reset input
+        errorMsg.textContent = 'Only PDF and PNG files are allowed!';
+        return;
+      }
+
+      label.textContent = file.name;
+      errorMsg.textContent = '';
+    }
+  </script>
+
+</body>
+</html>
