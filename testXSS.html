@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>XSS Protection Test</title>
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <style>
+    .form-control {
+      display: block;
+      width: 80%;
+      margin: 10px 0;
+      padding: 8px;
+      font-size: 16px;
+    }
+
+    [contenteditable].form-control {
+      border: 1px solid #ccc;
+      min-height: 40px;
+      background-color: #f8f8f8;
+    }
+  </style>
+</head>
+<body>
+
+  <h2>XSS Input Test Page</h2>
+
+  <!-- Text input -->
+  <input type="text" class="form-control" placeholder="Test <input>" />
+
+  <!-- Textarea -->
+  <textarea class="form-control" placeholder="Test <textarea>"></textarea>
+
+  <!-- Select dropdown with malicious value -->
+  <select class="form-control">
+    <option value="">Choose an option</option>
+    <option value="<script>alert('XSS')</script>">Malicious Option</option>
+    <option value="Normal Value">Safe Option</option>
+  </select>
+
+  <!-- Contenteditable field -->
+  <div class="form-control" contenteditable="true">Edit me — try inserting &lt;script&gt;</div>
+
+  <!-- File input (not sanitized, just for completeness) -->
+  <input type="file" class="form-control" />
+
+  <script>
+    // XSS detection patterns
+    function containsMaliciousContent(value) {
+      const patterns = [
+        /<\s*script.*?>/gi,
+        /<\/\s*script\s*>/gi,
+        /on\w+\s*=/gi,
+        /javascript:/gi,
+        /<\s*iframe/gi,
+        /<\s*img.*?onerror\s*=/gi,
+        /<\s*svg/gi,
+        /<\/\s*svg\s*>/gi
+      ];
+      return patterns.some(pattern => pattern.test(value));
+    }
+
+    // Sanitize value by removing dangerous characters and javascript:
+    function sanitizeValue(value) {
+      return value
+        .replace(/javascript:/gi, '')
+        .replace(/[<>\"']/g, ' ');
+    }
+
+    // Input, textarea, select
+    $(document).on('input change', 'input.form-control, textarea.form-control, select.form-control', function () {
+      let val = $(this).val();
+      if (containsMaliciousContent(val)) {
+        alert("XSS detected! Malicious content was removed.");
+        $(this).val(sanitizeValue(val));
+      }
+    });
+
+    // contenteditable divs
+    $(document).on('input', '[contenteditable].form-control', function () {
+      let val = $(this).text();
+      if (containsMaliciousContent(val)) {
+        alert("XSS detected in editable content!");
+        $(this).text(sanitizeValue(val));
+      }
+    });
+  </script>
+
+</body>
+</html>
