@@ -1,0 +1,246 @@
+Alright Aditya ✅
+Here’s the **final, clean, ready-to-use setup** for your ASP.NET WebForms project that:
+
+* **Keeps your per-page manual session checks** (`Session["EMP_CODE"]`)
+* **Handles DB/config errors in one place** (`DbConnection.cs`)
+* **Shows friendly error pages instead of ASP.NET yellow screen** (`Global.asax` + `Web.config`)
+* **Logs all real errors internally**
+
+---
+
+## **1️⃣ Web.config** — Hide detailed errors + Connection String
+
+```xml
+<configuration>
+  <system.web>
+    <!-- Hide detailed ASP.NET error messages -->
+    <customErrors mode="On" defaultRedirect="GenericError.aspx">
+      <error statusCode="404" redirect="NotFound.aspx" />
+      <error statusCode="500" redirect="GenericError.aspx" />
+    </customErrors>
+  </system.web>
+
+  <connectionStrings>
+    <!-- Your DB connection -->
+    <add name="MyDB" connectionString="Data Source=SERVER;Initial Catalog=DBNAME;Integrated Security=True" providerName="System.Data.SqlClient" />
+  </connectionStrings>
+</configuration>
+```
+
+💡 If you comment this `<add name="MyDB">` line, our `DbConnection.cs` will handle it and show a safe message.
+
+---
+
+## **2️⃣ Global.asax** — Central Error Handling for Whole Project
+
+```csharp
+protected void Application_Error(object sender, EventArgs e)
+{
+    Exception ex = Server.GetLastError();
+    Server.ClearError();
+
+    // Log the real error
+    LogError(ex);
+
+    // Redirect based on error type
+    if (ex.Message.Contains("Database connection failed"))
+    {
+        Response.Redirect("~/DbError.aspx");
+    }
+    else if (ex.Message.Contains("Application configuration error"))
+    {
+        Response.Redirect("~/ConfigError.aspx");
+    }
+    else if (ex is HttpException httpEx && httpEx.GetHttpCode() == 404)
+    {
+        Response.Redirect("~/NotFound.aspx");
+    }
+    else
+    {
+        Response.Redirect("~/GenericError.aspx");
+    }
+}
+
+private void LogError(Exception ex)
+{
+    string logPath = Server.MapPath("~/App_Data/ErrorLog.txt");
+    System.IO.File.AppendAllText(logPath,
+        DateTime.Now + " | " + ex.Message + Environment.NewLine + ex.StackTrace +
+        Environment.NewLine + "------------------------" + Environment.NewLine);
+}
+```
+
+📌 This ensures no raw exception ever leaks to the browser.
+
+---
+
+## **3️⃣ DbConnection.cs** — Central DB & Config Error Handling
+
+```csharp
+using System;
+using System.Configuration;
+using System.Data.SqlClient;
+using System.Web;
+
+public class DbConnectionClass
+{
+    public static SqlConnection GetConnection()
+    {
+        try
+        {
+            var connStringSettings = ConfigurationManager.ConnectionStrings["MyDB"];
+
+            if (connStringSettings == null || string.IsNullOrWhiteSpace(connStringSettings.ConnectionString))
+            {
+                throw new Exception("Application configuration error");
+            }
+
+            SqlConnection conn = new SqlConnection(connStringSettings.ConnectionString);
+            conn.Open();
+            return conn;
+        }
+        catch (SqlException ex)
+        {
+            LogError(ex);
+            throw new Exception("Database connection failed");
+        }
+        catch (Exception ex)
+        {
+            LogError(ex);
+            throw;
+        }
+    }
+
+    private static void LogError(Exception ex)
+    {
+        string logPath = HttpContext.Current.Server.MapPath("~/App_Data/ErrorLog.txt");
+        System.IO.File.AppendAllText(logPath,
+            DateTime.Now + " | " + ex.Message + Environment.NewLine + ex.StackTrace +
+            Environment.NewLine + "------------------------" + Environment.NewLine);
+    }
+}
+```
+
+📌 Any DB/config error → throws a **safe message** for `Global.asax` to handle.
+
+---
+
+## **4️⃣ Per-Page Manual Session Check Example**
+
+Since you don’t want `BasePage.cs`, check session manually in each `.aspx.cs` file.
+
+Example: **roadmap.aspx.cs**
+
+```csharp
+protected void Page_Load(object sender, EventArgs e)
+{
+    // Session check
+    if (HttpContext.Current.Session["EMP_CODE"] == null)
+    {
+        Response.Redirect("~/login.aspx");
+        return;
+    }
+
+    string empCode = HttpContext.Current.Session["EMP_CODE"].ToString();
+
+    try
+    {
+        using (var conn = DbConnectionClass.GetConnection())
+        {
+            // Your DB logic here
+        }
+    }
+    catch
+    {
+        throw; // Let Global.asax handle it
+    }
+}
+```
+
+📌 Always check for `null` before `.ToString()` — prevents `NullReferenceException`.
+
+---
+
+## **5️⃣ Custom Friendly Pages**
+
+Create these `.aspx` files in root folder:
+
+**GenericError.aspx**
+
+```aspx
+<%@ Page Language="C#" %>
+<!DOCTYPE html>
+<html>
+<head><title>Error</title></head>
+<body>
+    <h2>Oops! Something went wrong.</h2>
+    <p>Please try again later.</p>
+</body>
+</html>
+```
+
+**DbError.aspx**
+
+```aspx
+<%@ Page Language="C#" %>
+<!DOCTYPE html>
+<html>
+<head><title>Database Error</title></head>
+<body>
+    <h2>Database Connection Issue</h2>
+    <p>We are facing technical issues. Please try again shortly.</p>
+</body>
+</html>
+```
+
+**ConfigError.aspx**
+
+```aspx
+<%@ Page Language="C#" %>
+<!DOCTYPE html>
+<html>
+<head><title>Configuration Error</title></head>
+<body>
+    <h2>Application Configuration Issue</h2>
+    <p>Our team is working on fixing this. Please contact the administrator.</p>
+</body>
+</html>
+```
+
+**NotFound.aspx**
+
+```aspx
+<%@ Page Language="C#" %>
+<!DOCTYPE html>
+<html>
+<head><title>Page Not Found</title></head>
+<body>
+    <h2>404 - Page Not Found</h2>
+    <p>The page you are looking for doesn’t exist.</p>
+</body>
+</html>
+```
+
+---
+
+## **✅ How It All Works**
+
+1. **Session Expired / Cache Cleared** →
+   Per-page check sends user to `login.aspx`.
+
+2. **DB Connection String Missing** →
+   `DbConnection.cs` throws `"Application configuration error"` → `Global.asax` → `ConfigError.aspx`.
+
+3. **DB Server Down** →
+   `DbConnection.cs` throws `"Database connection failed"` → `Global.asax` → `DbError.aspx`.
+
+4. **Any Other Exception** →
+   `Global.asax` → `GenericError.aspx`.
+
+5. **404 Page Missing** →
+   `Global.asax` → `NotFound.aspx`.
+
+---
+
+If you want, I can also give you a **flow diagram** of how this error/session handling will work across your 10+ pages so you can include it in your project documentation.
+Do you want me to make that diagram?
